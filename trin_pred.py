@@ -3,8 +3,8 @@ from azure.cognitiveservices.vision.customvision.training.models import ImageFil
 from azure.cognitiveservices.vision.customvision.prediction import CustomVisionPredictionClient
 from sklearn.metrics import classification_report
 from glob import glob
-import os, time
 
+import os, time, shutil
 
 def prompt_txt(resource):
     return( f"As found by clicking on the {resource} ressource found here: \n" 
@@ -215,7 +215,12 @@ def rename_prediction_images(folder_to_predict):
                 except: 
                     print("Error occurred while copying file.") 
 
-def predict(image_folder, project_name, published_name=None, iteration_name=None, file_types="", threshold = 0.5):
+
+
+
+
+def predict(image_folder, project_name, published_name=None, iteration_name=None, 
+    file_types="", threshold = 0.5, visualize=False):
     if not os.getenv("CVPREDICTIONKEY"): prompt_prediction_key()
     if not os.getenv("CVENDPOINT"): prompt_enpoint_url()
 
@@ -249,7 +254,6 @@ def predict(image_folder, project_name, published_name=None, iteration_name=None
             print(f"percent doen: {int((len(prediction_objects_dict)/nfiles)*100)} %", end="\r")
 
     #return(prediction_objects_dict, labels_dict) #TODO: REWRITE TO OOP AND SAVE THESE TO OBJECT
-    
 
     predictions = list()
     labels = list()
@@ -260,12 +264,15 @@ def predict(image_folder, project_name, published_name=None, iteration_name=None
         pred = highest_prob_pred_touple[0] if highest_prob_pred_touple[1] > threshold else None
         label = labels_dict[name]
         predictions.append(pred)
-        labels.append(label) if pred not None else labels.append(None)
-    
-    report = classification_report(labels, predictions, zero_division=0) #TODO: save to object
-    print(report)
-    
-    return(labels,predictions)
-    
+        labels.append(label) if pred is not None else labels.append("uncertain")
 
+    #prnt result and then save as dict
+    for bol in [False, True]:
+        report = classification_report(labels, predictions, zero_division=0, 
+            output_dict=bol) #TODO: save to object
+        if not bol: print("\n", report) 
+
+    
+    return(labels, predictions, report)
+    
 

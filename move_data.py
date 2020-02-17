@@ -70,3 +70,5 @@ def download_txt_content_from_container(container_name, local_folder_name):
                 download_file.write(str(content))
         else:
             pass
+
+print("This")

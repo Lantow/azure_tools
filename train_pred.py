@@ -3,8 +3,8 @@ from azure.cognitiveservices.vision.customvision.training.models import ImageFil
 from azure.cognitiveservices.vision.customvision.prediction import CustomVisionPredictionClient
 from sklearn.metrics import classification_report
 from glob import glob
-import os, time
 
+import numpy as np
 import os, time, shutil
 
 def prompt_txt(resource):
@@ -193,6 +193,7 @@ def choose_iteration(iterations):
 def rename_prediction_images(folder_to_predict):
     #This function expects a folder per class in folder_to_predict
     #with the class name as the folder name
+    #TODO: find en måde at vær sikker på at mapperne har samme navn som de trænede klasser
     for root, dirs, files in os.walk(folder_to_predict):
         for d in dirs:
             for path in os.listdir(f"{folder_to_predict}/{d}"):
@@ -215,10 +216,6 @@ def rename_prediction_images(folder_to_predict):
                 # For other errors 
                 except: 
                     print("Error occurred while copying file.") 
-
-
-
-
 
 def predict(image_folder, project_name, published_name=None, iteration_name=None, 
     file_types="", threshold = 0.5, visualize=False):
@@ -244,15 +241,14 @@ def predict(image_folder, project_name, published_name=None, iteration_name=None
 
     nfiles =  len(files)
     for fpath in files:
-        fname = fpath.split("/")[-1].split(".")[0]
         label = fpath.split("/")[-1].split(".")[-2]
         with open(fpath, "rb") as image_contents:
             image_data = image_contents.read()
             result = predictor.classify_image(project.id, published_name, image_data)
-            prediction_objects_dict[fname] = result
-            labels_dict[fname] = label
+            prediction_objects_dict[fpath] = result
+            labels_dict[fpath] = label
             # Display the results.
-            print(f"percent doen: {int((len(prediction_objects_dict)/nfiles)*100)} %", end="\r")
+            print(f"percent done: {int((len(prediction_objects_dict)/nfiles)*100)} %", end="\r")
 
     #return(prediction_objects_dict, labels_dict) #TODO: REWRITE TO OOP AND SAVE THESE TO OBJECT
     
@@ -263,19 +259,23 @@ def predict(image_folder, project_name, published_name=None, iteration_name=None
     for name, predict_object in prediction_objects_dict.items():
         all_classes_pred_touple = [(p.tag_name, p.probability) for p in predict_object.predictions]
         highest_prob_pred_touple =  max(all_classes_pred_touple, key=lambda x: x[1])
-        pred = highest_prob_pred_touple[0] if highest_prob_pred_touple[1] > threshold else None
-        label = labels_dict[name]
-        predictions.append(pred)
-        labels.append(label) if pred is not None else labels.append("uncertain")
+        if highest_prob_pred_touple[1] > threshold:
+            pred = highest_prob_pred_touple[0]
+            label = labels_dict[name]
+            predictions.append(pred)
+            labels.append(label)
+
+    n_uncertain = nfiles - len(predictions)
+
 
     #prnt result and then save as dict
     for bol in [False, True]:
         report = classification_report(labels, predictions, zero_division=0, 
             output_dict=bol) #TODO: save to object
-        if not bol: print("\n", report) 
+        if not bol: print(f"\n {report} \n Predictions under threshold: {n_uncertain/nfiles}%") 
 
     
-    return(labels, predictions, report)
+    return(labels, predictions, report, prediction_objects_dict, labels_dict)
     
 
-
+predict("this", "that")
